@@ -50,6 +50,8 @@ x-shared: &shared
     - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
   volumes:
     - n8n_storage:/home/node/.n8n
+  extra_hosts:
+    - host.docker.internal:host-gateway
   networks:
     - n8n-net
 
