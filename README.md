@@ -1,26 +1,27 @@
-# n8n with PostgreSQL and Worker
+# n8n with PostgreSQL, Redis, and Worker
 
 Starts n8n with PostgreSQL as database, Redis for queue management, and a Worker as a separate container. Task runner sidecar containers are included for executing Code nodes (JavaScript/Python), as required by n8n 2.0+.
 
 ## Start
 
-To start n8n simply start docker-compose by executing the following
-command in the current folder.
+Copy `.env.example` to `.env` and fill in your values before starting the stack:
 
-**IMPORTANT:** But before you do that change the default users, passwords, and tokens in the [`.env`](.env) file!
-
-```
+```bash
+cp .env.example .env
 docker compose up -d
 ```
 
-To stop it execute:
+## Stop
 
-```
+```bash
 docker compose stop
 ```
 
 ## Configuration
 
-The default name of the database, user and password for PostgreSQL can be changed in the [`.env`](.env) file in the current directory.
+The `.env` file controls the image versions and credentials for the stack.
 
-The `RUNNERS_AUTH_TOKEN` in the [`.env`](.env) file is a shared secret used for authentication between n8n and the task runner containers. Generate a secure random value for production use.
+- `N8N_VERSION`, `POSTGRES_VERSION`, and `REDIS_VERSION` pin container versions.
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, and related values configure PostgreSQL.
+- `ENCRYPTION_KEY` should be a secure 32-byte hex value generated with `openssl rand -hex 32`.
+- `RUNNERS_AUTH_TOKEN` is a shared secret used for authentication between n8n and the task runner containers. Generate a secure random value for production use.
