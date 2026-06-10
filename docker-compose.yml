@@ -105,7 +105,8 @@ services:
 
   n8n-worker:
     <<: *shared
-    command: worker
+    command: worker --concurrency=5
+    stop_grace_period: 60s
     depends_on:
       - n8n
 
