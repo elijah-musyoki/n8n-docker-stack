@@ -47,6 +47,8 @@ x-shared: &shared
     - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
   volumes:
     - n8n_storage:/home/node/.n8n
+  networks:
+    - n8n-net
   depends_on:
     redis:
       condition: service_healthy
@@ -58,6 +60,8 @@ x-runner: &runner
   image: n8nio/runners:${N8N_VERSION}
   environment:
     - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+  networks:
+    - n8n-net
 
 services:
   postgres:
@@ -77,6 +81,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - n8n-net
 
   redis:
     image: redis:${REDIS_VERSION}
@@ -89,6 +95,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - n8n-net
 
   n8n:
     <<: *shared
@@ -131,3 +139,7 @@ services:
     depends_on:
       n8n-worker:
         condition: service_healthy
+
+networks:
+  n8n-net:
+    driver: bridge
