@@ -49,11 +49,12 @@ x-shared: &shared
     - n8n_storage:/home/node/.n8n
   networks:
     - n8n-net
-  depends_on:
-    redis:
-      condition: service_healthy
-    postgres:
-      condition: service_healthy
+
+x-backend-deps: &backend-deps
+  redis:
+    condition: service_healthy
+  postgres:
+    condition: service_healthy
 
 x-runner: &runner
   restart: always
@@ -102,6 +103,8 @@ services:
     <<: *shared
     ports:
       - 127.0.0.1:5678:5678
+    depends_on:
+      <<: *backend-deps
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
@@ -129,7 +132,9 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
-      - n8n
+      <<: *backend-deps
+      n8n:
+        condition: service_started
 
   n8n-worker-runner:
     <<: *runner
