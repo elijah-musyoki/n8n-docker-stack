@@ -93,7 +93,7 @@ services:
   n8n:
     <<: *shared
     ports:
-      - 5678:5678
+      - 127.0.0.1:5678:5678
 
   n8n-runner:
     <<: *runner
