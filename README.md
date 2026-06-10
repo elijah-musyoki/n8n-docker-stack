@@ -24,4 +24,5 @@ The `.env` file controls the image versions and credentials for the stack.
 - `N8N_VERSION`, `POSTGRES_VERSION`, and `REDIS_VERSION` pin container versions.
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, and related values configure PostgreSQL.
 - `ENCRYPTION_KEY` should be a secure 32-byte hex value generated with `openssl rand -hex 32`.
+- `N8N_OTEL_TRACES_SAMPLE_RATE` controls trace sampling. `0.1` keeps roughly 10% of traces.
 - `RUNNERS_AUTH_TOKEN` is a shared secret used for authentication between n8n and the task runner containers. Generate a secure random value for production use.
