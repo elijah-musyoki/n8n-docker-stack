@@ -61,7 +61,7 @@ x-runner: &runner
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:${POSTGRES_VERSION}
     restart: always
     environment:
       - POSTGRES_USER
@@ -79,7 +79,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:6-alpine
+    image: redis:${REDIS_VERSION}
     restart: always
     command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
