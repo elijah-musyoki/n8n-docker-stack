@@ -94,6 +94,12 @@ services:
     <<: *shared
     ports:
       - 127.0.0.1:5678:5678
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   n8n-runner:
     <<: *runner
@@ -101,12 +107,19 @@ services:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
     depends_on:
-      - n8n
+      n8n:
+        condition: service_healthy
 
   n8n-worker:
     <<: *shared
     command: worker --concurrency=5
     stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     depends_on:
       - n8n
 
@@ -116,4 +129,5 @@ services:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker:5679
     depends_on:
-      - n8n-worker
+      n8n-worker:
+        condition: service_healthy
