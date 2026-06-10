@@ -1,10 +1,10 @@
-# n8n with PostgreSQL, Redis, and Worker
+# n8n with PostgreSQL, Redis, Worker, and Task Runners
 
-Starts n8n with PostgreSQL as database, Redis for queue management, and a Worker as a separate container. Task runner sidecar containers are included for executing Code nodes (JavaScript/Python), as required by n8n 2.0+.
+Starts n8n with PostgreSQL as the database, Redis for queue management, a separate worker container, and task runner sidecars for executing Code nodes (JavaScript/Python), as required by n8n 2.0+.
 
 ## Start
 
-Copy `.env.example` to `.env` and fill in your values before starting the stack:
+Copy `.env.example` to `.env`, fill in your values, then start the stack:
 
 ```bash
 cp .env.example .env

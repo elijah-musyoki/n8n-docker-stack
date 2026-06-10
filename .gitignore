@@ -1,0 +1,5 @@
+# Letta workspace metadata
+.letta/
+
+# Session notes
+session-*.md
