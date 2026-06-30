@@ -19,7 +19,6 @@ x-shared: &shared
     - QUEUE_BULL_REDIS_TIMEOUT_THRESHOLD=10000
     - QUEUE_HEALTH_CHECK_ACTIVE=true
     - N8N_ENCRYPTION_KEY=${ENCRYPTION_KEY}
-    - N8N_RUNNERS_ENABLED=true
     - N8N_RUNNERS_MODE=external
     - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
     - N8N_RUNNERS_BROKER_PORT=5679
@@ -126,6 +125,7 @@ services:
     <<: *shared
     ports:
       - 127.0.0.1:5678:5678
+    stop_grace_period: 60s
     depends_on:
       <<: *backend-deps
     healthcheck:
@@ -148,6 +148,7 @@ services:
     environment:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
+    stop_grace_period: 60s
     depends_on:
       n8n:
         condition: service_healthy
@@ -194,6 +195,7 @@ services:
     environment:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker:5679
+    stop_grace_period: 60s
     depends_on:
       n8n-worker:
         condition: service_healthy
