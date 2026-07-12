@@ -9,3 +9,6 @@ session-*.md
 
 # Research files
 research/
+
+# Docker volumes
+alloy_data/
