@@ -6,3 +6,6 @@ session-*.md
 
 # Local environment (contains secrets)
 .env
+
+# Research files
+research/
