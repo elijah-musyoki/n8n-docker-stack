@@ -90,8 +90,8 @@ All configuration lives in `.env` (copy from `.env.example`).
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `N8N_VERSION` | n8n image tag (e.g., `2.25.7`) | ✅ |
-| `POSTGRES_VERSION` | PostgreSQL image tag (e.g., `18.4`) | ✅ |
+| `N8N_VERSION` | n8n image tag (e.g., `2.29.10`) | ✅ |
+| `POSTGRES_VERSION` | PostgreSQL image tag (e.g., `17-alpine`) | ✅ |
 | `REDIS_VERSION` | Redis image tag (e.g., `8.8.0-alpine`) | ✅ |
 | `POSTGRES_USER` | Postgres superuser name | ✅ |
 | `POSTGRES_PASSWORD` | Postgres superuser password | ✅ |
