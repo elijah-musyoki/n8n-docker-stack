@@ -26,7 +26,7 @@ x-shared: &shared
     - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
     - N8N_NATIVE_PYTHON_RUNNER=true
     - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
-    - NODE_ENV=production
+    - NODE_ENV=development
     - GENERIC_TIMEZONE=UTC
     - TZ=UTC
     - N8N_HOST=${N8N_HOST:-localhost}
