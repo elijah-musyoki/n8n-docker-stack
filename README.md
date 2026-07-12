@@ -1,4 +1,4 @@
-# n8n with PostgreSQL, Redis, Worker, and Task Runners
+# n8n with PostgreSQL, Redis, Worker, Task Runners, and Alloy
 
 A production-ready Docker Compose stack for n8n 2.0+ with:
 
@@ -8,6 +8,7 @@ A production-ready Docker Compose stack for n8n 2.0+ with:
 - **n8n-worker** — dedicated execution worker (queue mode)
 - **n8n-runner** — task runner sidecar for Code nodes (JavaScript/Python)
 - **n8n-worker-runner** — task runner attached to the worker
+- **Alloy** — OTLP trace receiver, forwards to Grafana Cloud Tempo
 
 ---
 
@@ -32,6 +33,12 @@ A production-ready Docker Compose stack for n8n 2.0+ with:
                             │n8n-runner│ │n8n-worker- │
                             │ (tasks)  │ │ runner     │
                             └──────────┘ └────────────┘
+
+         ┌──────────────────────────────────────┐
+         │              Alloy                   │
+         │  Receives OTLP traces from n8n       │
+         │  Forwards to Grafana Cloud Tempo     │
+         └──────────────────────────────────────┘
 ```
 
 All services communicate over the internal `n8n-net` bridge network.
@@ -97,6 +104,8 @@ All configuration lives in `.env` (copy from `.env.example`).
 | `N8N_OTEL_TRACES_SAMPLE_RATE` | Trace sampling (0.0–1.0) | ✅ |
 | `N8N_ENDPOINT_HEALTH` | Health endpoint path (default: `health/live`) | ✅ |
 | `WEBHOOK_URL` | Public URL for webhooks (update for prod) | ✅ |
+| `GRAFANA_CLOUD_TRACES_INSTANCE_ID` | Grafana Cloud traces instance ID | ✅ |
+| `GRAFANA_CLOUD_API_KEY` | Grafana Cloud API key | ✅ |
 
 ### Secrets generation cheatsheet
 
@@ -132,7 +141,7 @@ Runs automatically on first PostgreSQL startup. Creates the non-root database us
 
 | Feature | Config | Notes |
 |---------|--------|-------|
-| **OpenTelemetry traces** | `N8N_OTEL_ENABLED=true` | Exports to `http://host.docker.internal:4318` — requires an OTel collector (e.g., Grafana Alloy, Jaeger, Tempo) running on the host |
+| **OpenTelemetry traces** | `N8N_OTEL_ENABLED=true` | Exports to `http://alloy:4318` — sidecar Alloy receives traces and forwards to Grafana Cloud Tempo |
 | **Prometheus metrics** | `N8N_METRICS=true` | Scrape at `http://localhost:5678/metrics` |
 | **JSON logging** | `N8N_LOG_FORMAT=json` | Structured logs to stdout for log aggregators |
 | **Queue metrics** | `N8N_METRICS_INCLUDE_QUEUE_METRICS=true` | Bull queue depth, latency, etc. |
@@ -151,7 +160,8 @@ The compose file sets CPU/memory limits. Minimum host resources recommended:
 | n8n-worker-runner | 1 core | 512 MB |
 | PostgreSQL | 2 cores | 1 GB |
 | Redis | 1 core | 256 MB |
-| **Total** | **~11 cores** | **~5.3 GB** |
+| Alloy | 0.5 cores | 256 MB |
+| **Total** | **~11.5 cores** | **~5.5 GB** |
 
 Adjust `deploy.resources.limits` in `docker-compose.yml` if your host has less.
 
@@ -166,6 +176,7 @@ Named Docker volumes (survive `docker compose down`):
 | `db_storage` | postgres | `/var/lib/postgresql` — all DB data |
 | `n8n_storage` | n8n, n8n-worker | `/home/node/.n8n` — binary data, config, custom nodes |
 | `redis_storage` | redis | `/data` — queue persistence (AOF) |
+| `alloy_data` | alloy | `/var/lib/alloy/data` — trace buffering |
 
 Backup strategy: `docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_backup_$(date +%F).tar.gz -C /data .`
 
@@ -175,7 +186,7 @@ Backup strategy: `docker run --rm -v db_storage:/data -v $(pwd):/backup alpine t
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `n8n` healthcheck fails | OTel collector not running on host:4318 | Either start a collector or set `N8N_OTEL_ENABLED=false` |
+| `n8n` healthcheck fails | Alloy sidecar not running | `docker compose up -d alloy` or disable OTel with `N8N_OTEL_ENABLED=false` |
 | `POSTGRES_NON_ROOT_USER` not created | `init-data.sh` didn't run (volume already existed) | `docker compose down -v && docker compose up -d` |
 | Task runners won't connect | `RUNNERS_AUTH_TOKEN` mismatch | Ensure identical value in `.env` for all services |
 | Webhook URLs show `localhost` | `WEBHOOK_URL` not updated | Set `WEBHOOK_URL=https://your-domain.com/` in `.env` |
