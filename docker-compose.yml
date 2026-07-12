@@ -233,9 +233,6 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy
       - alloy_data:/var/lib/alloy/data
-    ports:
-      - 127.0.0.1:4317:4317
-      - 127.0.0.1:4318:4318
     environment:
       - GRAFANA_CLOUD_TRACES_INSTANCE_ID=${GRAFANA_CLOUD_TRACES_INSTANCE_ID}
       - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
