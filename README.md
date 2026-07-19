@@ -1,83 +1,59 @@
-# n8n with PostgreSQL, Redis, Worker, Task Runners, and host Alloy
+# n8n with PostgreSQL, Redis, workers, runners, and Alloy
 
-A Docker Compose stack for n8n with PostgreSQL, Redis, workers, task runners, and Alloy on the Docker host.
+A Docker Compose stack for n8n.
+It includes PostgreSQL, Redis, a main n8n service, a worker, two task runners, and Alloy on the host.
 
-- **PostgreSQL** — persistent workflow & execution data
-- **Redis** — Bull queue backend for execution routing
-- **n8n (main)** — web UI, API, and workflow editor
-- **n8n-worker** — dedicated execution worker (queue mode)
-- **n8n-runner** — task runner sidecar for Code nodes (JavaScript/Python)
-- **n8n-worker-runner** — task runner attached to the worker
-- **Alloy** — OTLP receiver on the host that forwards to Grafana Cloud Tempo
-
----
-
-## Architecture
-
-```
-                    ┌─────────────┐
-                    │   n8n       │◄── Web UI (port 5678)
-                    │  (main)     │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-         ┌─────────┐ ┌───────────┐ ┌────────────┐
-         │ PostgreSQL│ │   Redis   │ │ n8n-worker │
-         │  (DB)     │ │  (Queue)  │ │  (Worker)  │
-         └─────────┘ └───────────┘ └─────┬──────┘
-                                         │
-                                  ┌──────┴──────┐
-                                  ▼             ▼
-                            ┌──────────┐ ┌────────────┐
-                            │n8n-runner│ │n8n-worker- │
-                            │ (tasks)  │ │ runner     │
-                            └──────────┘ └────────────┘
-
-         ┌──────────────────────────────────────┐
-         │           Alloy on the host          │
-         │  Receives OTLP traces from n8n       │
-         │  Forwards to Grafana Cloud Tempo     │
-         └──────────────────────────────────────┘
-```
-
-All services communicate over the internal `n8n-net` bridge network.
+- PostgreSQL stores workflow and execution data.
+- Redis handles the queue.
+- n8n serves the UI and API.
+- n8n-worker runs queued jobs.
+- n8n-runner handles Code node tasks.
+- n8n-worker-runner handles task runner jobs for the worker.
+- Alloy receives OTLP traces and forwards them to Grafana Cloud Tempo.
 
 ---
 
-## Quick Start
+## Layout
+
+```
+n8n main        → Web UI and API on port 5678
+PostgreSQL      → Database
+Redis           → Queue
+n8n-worker      → Worker
+n8n-runner      → Task runner
+n8n-worker-runner → Task runner for the worker
+Alloy           → OTLP receiver on the host
+```
+
+All services use the internal `n8n-net` network.
+
+---
+
+## Quick start
 
 ```bash
-# 1. Copy the example env file and fill in your values
 cp .env.example .env
-
-# 2. Generate secure secrets (run once)
-# ENCRYPTION_KEY:
-openssl rand -hex 32
-# RUNNERS_AUTH_TOKEN:
-openssl rand -hex 32
-# REDIS_PASSWORD:
-openssl rand -hex 32
-# POSTGRES_PASSWORD & POSTGRES_NON_ROOT_PASSWORD:
-openssl rand -hex 16
-
-# 3. Paste the generated values into .env, then start
+uv run generate-secrets.py
 docker compose up -d
 ```
 
-n8n will be available at **http://localhost:5678**
+Open:
+- `http://localhost:5678`
+
+---
 
 ## Local stack examples
 
-You can run three local stacks from the same compose file by giving each one its own project name and env file.
+You can run three local stacks from the same compose file.
+Each stack needs its own project name and env file.
 
 | Stack | Project name | Host port | Env file |
-|------|------|------|------|
+|---|---|---:|---|
 | Dev | `n8n-dev` | `5678` | `.env` |
 | Local staging | `n8n-staging` | `5679` | `.env.local-staging` |
 | Local prod | `n8n-prod` | `5680` | `.env.local-prod` |
 
-Launch them like this:
+Start them like this:
 
 ```bash
 docker compose -p n8n-dev up -d
@@ -85,164 +61,189 @@ docker compose -p n8n-staging --env-file .env.local-staging up -d
 docker compose -p n8n-prod --env-file .env.local-prod up -d
 ```
 
-For the local staging and local prod stacks, copy the example files first:
+Copy the example files first:
 
 ```bash
 cp .env.local-staging.example .env.local-staging
 cp .env.local-prod.example .env.local-prod
 ```
 
-Then set `N8N_HOST_PORT` and `WEBHOOK_URL` to match the port in each file. Leave `N8N_PORT=5678` alone inside every stack.
+Set `N8N_HOST_PORT` and `WEBHOOK_URL` in each file.
+Keep `N8N_PORT=5678` inside every stack.
 
 ---
 
-## Stop & Cleanup
+## Stop
 
 ```bash
-# Stop containers (preserves volumes)
 docker compose stop
+```
 
-# Stop AND remove containers, networks (keeps volumes)
+Remove containers and networks:
+
+```bash
 docker compose down
+```
 
-# Full cleanup including volumes ⚠️ DATA LOSS
+Remove everything, including volumes:
+
+```bash
 docker compose down -v
 ```
 
 ---
 
-## Configuration
+## Configure
 
-All configuration lives in `.env` (copy from `.env.example`).
+Edit `.env`.
+Copy it from `.env.example`.
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `N8N_VERSION` | n8n image tag (e.g., `2.30.7`) | ✅ |
-| `POSTGRES_VERSION` | PostgreSQL image tag (e.g., `18.4`) | ✅ |
-| `REDIS_VERSION` | Redis image tag (e.g., `8.8.0-alpine`) | ✅ |
-| `POSTGRES_USER` | Postgres superuser name | ✅ |
-| `POSTGRES_PASSWORD` | Postgres superuser password | ✅ |
-| `POSTGRES_DB` | Database name (default: `n8n`) | ✅ |
-| `POSTGRES_NON_ROOT_USER` | App DB user (created by `init-data.sh`) | ✅ |
-| `POSTGRES_NON_ROOT_PASSWORD` | App DB user password | ✅ |
-| `ENCRYPTION_KEY` | **32-byte hex** — encrypts credentials in DB | ✅ |
-| `RUNNERS_AUTH_TOKEN` | **Shared secret** — n8n ↔ task runner auth | ✅ |
-| `REDIS_PASSWORD` | Redis auth password | ✅ |
-| `N8N_OTEL_TRACES_SAMPLE_RATE` | Trace sampling (0.0–1.0) | ✅ |
-| `N8N_ENDPOINT_HEALTH` | Health endpoint path (default: `health/live`) | ✅ |
-| `N8N_PORT` | n8n listen port inside the container (keep `5678`) | ✅ |
-| `N8N_HOST_PORT` | Published host port for the web UI | ✅ |
-| `WEBHOOK_URL` | Public URL for webhooks (update for prod) | ✅ |
-| `GRAFANA_CLOUD_TRACES_INSTANCE_ID` | Grafana Cloud traces instance ID | ✅ |
-| `GRAFANA_CLOUD_API_KEY` | Grafana Cloud API key | ✅ |
+Required values:
 
-### Secrets generation cheatsheet
+| Variable | Meaning |
+|---|---|
+| `N8N_VERSION` | n8n image tag |
+| `POSTGRES_VERSION` | PostgreSQL image tag |
+| `REDIS_VERSION` | Redis image tag |
+| `POSTGRES_USER` | Postgres user |
+| `POSTGRES_PASSWORD` | Postgres password |
+| `POSTGRES_DB` | Database name |
+| `POSTGRES_NON_ROOT_USER` | App DB user |
+| `POSTGRES_NON_ROOT_PASSWORD` | App DB password |
+| `ENCRYPTION_KEY` | 32 byte hex key |
+| `RUNNERS_AUTH_TOKEN` | Shared runner token |
+| `REDIS_PASSWORD` | Redis password |
+| `N8N_OTEL_TRACES_SAMPLE_RATE` | Trace sample rate |
+| `N8N_ENDPOINT_HEALTH` | Health path |
+| `N8N_PORT` | Container port |
+| `N8N_HOST_PORT` | Host port |
+| `WEBHOOK_URL` | Public webhook URL |
+| `GRAFANA_CLOUD_TRACES_INSTANCE_ID` | Grafana Cloud traces ID |
+| `GRAFANA_CLOUD_API_KEY` | Grafana Cloud API key |
+
+Other values:
+- `N8N_HOST`
+- `N8N_PROTOCOL`
+- `GENERIC_TIMEZONE`
+- `TZ`
+- `N8N_OTEL_PRODUCTION_ONLY`
+- `REDIS_MAXMEMORY`
+- `REDIS_MAXMEMORY_POLICY`
+- `QUEUE_BULL_REDIS_PORT`
+
+---
+
+## Secrets
+
+Generate or refresh `.env` with:
 
 ```bash
-# ENCRYPTION_KEY (32 bytes = 64 hex chars)
-openssl rand -hex 32
+uv run generate-secrets.py
+```
 
-# RUNNERS_AUTH_TOKEN (32 bytes)
-openssl rand -hex 32
+If you need the values by hand:
 
-# REDIS_PASSWORD (32 bytes)
-openssl rand -hex 32
-
-# POSTGRES_PASSWORD / POSTGRES_NON_ROOT_PASSWORD (16 bytes)
-openssl rand -hex 16
+```bash
+openssl rand -hex 32   # ENCRYPTION_KEY
+openssl rand -hex 32   # RUNNERS_AUTH_TOKEN
+openssl rand -hex 32   # REDIS_PASSWORD
+openssl rand -hex 16   # POSTGRES_PASSWORD / POSTGRES_NON_ROOT_PASSWORD
 ```
 
 ---
 
-## What `init-data.sh` Does
+## Database init
 
-Runs automatically on first PostgreSQL startup. Creates the non-root database user (`POSTGRES_NON_ROOT_USER`) with:
+`init-data.sh` runs on the first PostgreSQL start.
+It creates the non-root database user.
+It grants the rights n8n needs for its schema.
 
-- `CREATE USER` with the given password
-- `GRANT ALL PRIVILEGES ON DATABASE` to that user
-- `GRANT CREATE ON SCHEMA public` so n8n can manage its own schema migrations
-
-> **Note**: If you change `POSTGRES_NON_ROOT_USER` / `POSTGRES_NON_ROOT_PASSWORD` after the first run, you must either run the SQL manually or wipe the `db_storage` volume (`docker compose down -v`).
+If you change `POSTGRES_NON_ROOT_USER` or `POSTGRES_NON_ROOT_PASSWORD` later, do one of these:
+- run the SQL by hand
+- wipe the `db_storage` volume with `docker compose down -v`
 
 ---
 
-## Observability (Built-in)
+## Observability
 
 | Feature | Config | Notes |
-|---------|--------|-------|
-| **OpenTelemetry traces** | `N8N_OTEL_ENABLED=true` | Exports to `http://host.docker.internal:4318` — host Alloy receives traces and forwards to Grafana Cloud Tempo |
-| **Prometheus metrics** | `N8N_METRICS=true` | Scrape at `http://localhost:5678/metrics` |
-| **JSON logging** | `N8N_LOG_FORMAT=json` | Structured logs to stdout for log aggregators |
-| **Queue metrics** | `N8N_METRICS_INCLUDE_QUEUE_METRICS=true` | Bull queue depth, latency, etc. |
+|---|---|---|
+| OpenTelemetry traces | `N8N_OTEL_ENABLED=true` | Sends traces to `http://host.docker.internal:4318` |
+| Prometheus metrics | `N8N_METRICS=true` | Read at `http://localhost:5678/metrics` |
+| JSON logs | `N8N_LOG_FORMAT=json` | Good for log collectors |
+| Queue metrics | `N8N_METRICS_INCLUDE_QUEUE_METRICS=true` | Shows queue depth and latency |
 
 ---
 
-## Resource Requirements
+## Resources
 
-The compose file sets CPU/memory limits. Minimum host resources recommended:
+The compose file sets CPU and memory limits.
+If your host is small, lower them in `docker-compose.yml`.
 
-| Service | CPU Limit | Memory Limit |
-|---------|-----------|--------------|
-| n8n (main) | 2 cores | 1 GB |
+| Service | CPU | Memory |
+|---|---:|---:|
+| n8n main | 2 cores | 1 GB |
 | n8n-worker | 4 cores | 2 GB |
 | n8n-runner | 1 core | 512 MB |
 | n8n-worker-runner | 1 core | 512 MB |
 | PostgreSQL | 2 cores | 1 GB |
 | Redis | 1 core | 256 MB |
-| **Total** | **~11 cores** | **~5.25 GB** |
-
-Adjust `deploy.resources.limits` in `docker-compose.yml` if your host has less.
 
 ---
 
 ## Persistence
 
-Named Docker volumes (survive `docker compose down`):
+Named Docker volumes survive `docker compose down`.
 
-| Volume | Service | Contents |
-|--------|---------|----------|
-| `db_storage` | postgres | `/var/lib/postgresql` — all DB data |
-| `n8n_storage` | n8n, n8n-worker | `/home/node/.n8n` — binary data, config, custom nodes |
-| `redis_storage` | redis | `/data` — queue persistence (AOF) |
+| Volume | Service | Use |
+|---|---|---|
+| `db_storage` | postgres | Database data |
+| `n8n_storage` | n8n and n8n-worker | n8n state and custom nodes |
+| `redis_storage` | redis | Queue data |
 
-Backup strategy: `docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_backup_$(date +%F).tar.gz -C /data .`
+Backup:
+
+```bash
+docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_backup_$(date +%F).tar.gz -C /data .
+```
 
 ---
 
-## Common Issues
+## Common issues
 
 | Symptom | Cause | Fix |
-|---------|-------|-----|
-| `n8n` healthcheck fails | Host Alloy not running or not reachable from containers | Start Alloy under systemd and verify `http://host.docker.internal:4318` is reachable |
-| `POSTGRES_NON_ROOT_USER` not created | `init-data.sh` didn't run (volume already existed) | `docker compose down -v && docker compose up -d` |
-| Task runners won't connect | `RUNNERS_AUTH_TOKEN` mismatch | Ensure identical value in `.env` for all services |
-| Webhook URLs show `localhost` | `WEBHOOK_URL` not updated | Set `WEBHOOK_URL=https://your-domain.com/` in `.env` |
-| High memory usage | Default limits too high for your host | Lower `deploy.resources.limits.memory` in compose |
+|---|---|---|
+| n8n healthcheck fails | Alloy is not running or not reachable | Start Alloy and check `http://host.docker.internal:4318` |
+| `POSTGRES_NON_ROOT_USER` is missing | `init-data.sh` did not run | Run `docker compose down -v && docker compose up -d` |
+| Task runners do not connect | `RUNNERS_AUTH_TOKEN` mismatch | Use the same value in every env file |
+| Webhook URLs show `localhost` | `WEBHOOK_URL` is not set for that stack | Set the correct public URL in `.env` |
+| Memory use is high | Limits are too large for the host | Lower `deploy.resources.limits` |
 
 ---
 
-## Security Notes
+## Security notes
 
-- `.env` is **gitignored** — never commit real secrets
-- `N8N_BLOCK_ENV_ACCESS_IN_NODE=true` — nodes can't read host env vars
-- `N8N_RESTRICT_FILE_ACCESS_TO=/home/node/.n8n` — file operations sandboxed
-- `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true` — strict file perms
-- Task runners authenticate via shared `RUNNERS_AUTH_TOKEN`
-- `host.docker.internal` is mapped to the Docker host so containers can reach systemd Alloy
-- PostgreSQL uses a non-root user for n8n connections
+- `.env` is gitignored.
+- Do not commit real secrets.
+- `N8N_BLOCK_ENV_ACCESS_IN_NODE=true` blocks host env access.
+- `N8N_RESTRICT_FILE_ACCESS_TO=/home/node/.n8n` limits file access.
+- `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true` keeps strict file perms.
+- Task runners use `RUNNERS_AUTH_TOKEN`.
+- `host.docker.internal` lets containers reach host Alloy.
+- PostgreSQL uses a non-root user for n8n.
 
 ---
 
-## Upgrading n8n
+## Upgrade
 
-1. Update `N8N_VERSION` in `.env`
-2. `docker compose pull`
-3. `docker compose up -d` (handles rolling restart with healthchecks)
+1. Change `N8N_VERSION` in `.env`.
+2. Run `docker compose pull`.
+3. Run `docker compose up -d`.
 
-> **Always backup `db_storage` before major version upgrades.**
+Back up `db_storage` before a major upgrade.
 
 ---
 
 ## License
 
-MIT — use freely, modify, distribute.
+MIT. Use it, change it, share it.
