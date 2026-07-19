@@ -1,104 +1,50 @@
-# n8n with PostgreSQL, Redis, workers, runners, and Alloy
+# n8n with PostgreSQL, Redis, workers, runners, and host Alloy
 
-A Docker Compose stack for n8n.
-It includes PostgreSQL, Redis, a main n8n service, a worker, two task runners, and Alloy on the host.
+This repo runs n8n on one host. It uses PostgreSQL for data, Redis for the queue, a main n8n service, one worker, two task runner services, and Alloy on the host for traces.
 
-- PostgreSQL stores workflow and execution data.
-- Redis handles the queue.
-- n8n serves the UI and API.
-- n8n-worker runs queued jobs.
-- n8n-runner handles Code node tasks.
-- n8n-worker-runner handles task runner jobs for the worker.
-- Alloy receives OTLP traces and forwards them to Grafana Cloud Tempo.
+## Start
 
----
+1. Run `./bootstrap.sh`.
+2. Open `http://localhost:5678`.
 
-## Layout
+## Local stacks
 
-```
-n8n main        → Web UI and API on port 5678
-PostgreSQL      → Database
-Redis           → Queue
-n8n-worker      → Worker
-n8n-runner      → Task runner
-n8n-worker-runner → Task runner for the worker
-Alloy           → OTLP receiver on the host
-```
+You can run three local stacks from one compose file. Each stack needs its own project name and env file.
 
-All services use the internal `n8n-net` network.
-
----
-
-## Quick start
-
-```bash
-./bootstrap.sh
-```
-
-Open:
-- `http://localhost:5678`
-
----
-
-## Local stack examples
-
-You can run three local stacks from the same compose file.
-Each stack needs its own project name and env file.
-
-| Stack | Project name | Host port | Env file |
+| Name | Project | Port | Env file |
 |---|---|---:|---|
 | Dev | `n8n-dev` | `5678` | `.env` |
-| Local staging | `n8n-staging` | `5679` | `.env.local-staging` |
+| Local stage | `n8n-stage` | `5679` | `.env.local-staging` |
 | Local prod | `n8n-prod` | `5680` | `.env.local-prod` |
 
-Start them like this:
+Run them with:
 
 ```bash
 docker compose -p n8n-dev up -d
-docker compose -p n8n-staging --env-file .env.local-staging up -d
+docker compose -p n8n-stage --env-file .env.local-staging up -d
 docker compose -p n8n-prod --env-file .env.local-prod up -d
 ```
 
-Copy the example files first:
+Copy the example files first.
 
 ```bash
 cp .env.local-staging.example .env.local-staging
 cp .env.local-prod.example .env.local-prod
 ```
 
-Set `N8N_HOST_PORT` and `N8N_WEBHOOK_URL` in each file.
-Keep `N8N_PORT=5678` inside every stack.
-
----
+Set `N8N_HOST_PORT` and `N8N_WEBHOOK_URL` in each file. Keep `N8N_PORT=5678`.
 
 ## Stop
 
-```bash
-docker compose stop
-```
+1. `docker compose stop`
+2. `docker compose down`
+3. `docker compose down -v`
 
-Remove containers and networks:
+## Settings
 
-```bash
-docker compose down
-```
+Edit `.env`. Copy it from `.env.example`.
 
-Remove everything, including volumes:
-
-```bash
-docker compose down -v
-```
-
----
-
-## Configure
-
-Edit `.env`.
-Copy it from `.env.example`.
-
-Required values:
-
-| Variable | Meaning |
+| Value | Meaning |
 |---|---|
 | `N8N_VERSION` | n8n image tag |
 | `POSTGRES_VERSION` | PostgreSQL image tag |
@@ -120,25 +66,23 @@ Required values:
 | `GRAFANA_CLOUD_API_KEY` | Grafana Cloud API key |
 
 Other values:
-- `N8N_HOST`
-- `N8N_PROTOCOL`
-- `GENERIC_TIMEZONE`
-- `TZ`
-- `N8N_OTEL_TRACES_PRODUCTION_ONLY`
-- `REDIS_MAXMEMORY`
-- `REDIS_MAXMEMORY_POLICY`
-- `QUEUE_BULL_REDIS_PORT`
 
----
+| Value | Meaning |
+|---|---|
+| `N8N_HOST` | Host name |
+| `N8N_PROTOCOL` | Protocol |
+| `GENERIC_TIMEZONE` | Main time zone |
+| `TZ` | Container time zone |
+| `N8N_OTEL_TRACES_PRODUCTION_ONLY` | Trace mode |
+| `REDIS_MAXMEMORY` | Redis memory limit |
+| `REDIS_MAXMEMORY_POLICY` | Redis memory policy |
+| `QUEUE_BULL_REDIS_PORT` | Redis port |
 
 ## Secrets
 
-Generate or refresh `.env` with:
+Run `./generate-secrets.py` to create or refresh `.env`.
 
-```bash
-./generate-secrets.py
-```
-If you need the values by hand:
+If you need the values by hand, use:
 
 ```bash
 openssl rand -hex 32   # ENCRYPTION_KEY
@@ -147,21 +91,16 @@ openssl rand -hex 32   # REDIS_PASSWORD
 openssl rand -hex 16   # POSTGRES_PASSWORD / POSTGRES_NON_ROOT_PASSWORD
 ```
 
----
-
 ## Database init
 
-`init-data.sh` runs on the first PostgreSQL start.
-It creates the non-root database user.
-It grants the rights n8n needs for its schema.
+`init-data.sh` runs on the first PostgreSQL start. It creates the non root database user. It grants the rights n8n needs for its schema.
 
 If you change `POSTGRES_NON_ROOT_USER` or `POSTGRES_NON_ROOT_PASSWORD` later, do one of these:
-- run the SQL by hand
-- wipe the `db_storage` volume with `docker compose down -v`
 
----
+1. Run the SQL by hand.
+2. Wipe the `db_storage` volume with `docker compose down -v`.
 
-## Observability
+## Logs and metrics
 
 | Feature | Config | Notes |
 |---|---|---|
@@ -170,12 +109,9 @@ If you change `POSTGRES_NON_ROOT_USER` or `POSTGRES_NON_ROOT_PASSWORD` later, do
 | JSON logs | `N8N_LOG_FORMAT=json` | Good for log collectors |
 | Queue metrics | `N8N_METRICS_INCLUDE_QUEUE_METRICS=true` | Shows queue depth and latency |
 
----
+## Limits
 
-## Resources
-
-The compose file sets CPU and memory limits.
-If your host is small, lower them in `docker-compose.yml`.
+The compose file sets CPU and memory limits. Lower them in `docker-compose.yml` if the host is small.
 
 | Service | CPU | Memory |
 |---|---:|---:|
@@ -186,9 +122,7 @@ If your host is small, lower them in `docker-compose.yml`.
 | PostgreSQL | 2 cores | 1 GB |
 | Redis | 1 core | 256 MB |
 
----
-
-## Persistence
+## Storage
 
 Named Docker volumes survive `docker compose down`.
 
@@ -204,9 +138,7 @@ Backup:
 docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_backup_$(date +%F).tar.gz -C /data .
 ```
 
----
-
-## Common issues
+## Problems
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -216,9 +148,7 @@ docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_
 | Webhook URLs show `localhost` | `N8N_WEBHOOK_URL` is not set for that stack | Set the correct public URL in `.env` |
 | Memory use is high | Limits are too large for the host | Lower `deploy.resources.limits` |
 
----
-
-## Security notes
+## Security
 
 - `.env` is gitignored.
 - Do not commit real secrets.
@@ -227,19 +157,15 @@ docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_
 - `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true` keeps strict file perms.
 - Task runners use `RUNNERS_AUTH_TOKEN`.
 - `host.docker.internal` lets containers reach host Alloy.
-- PostgreSQL uses a non-root user for n8n.
+- PostgreSQL uses a non root user for n8n.
 
----
-
-## Upgrade
+## Update
 
 1. Change `N8N_VERSION` in `.env`.
 2. Run `docker compose pull`.
 3. Run `docker compose up -d`.
 
-Back up `db_storage` before a major upgrade.
-
----
+Back up `db_storage` before a major update.
 
 ## License
 
