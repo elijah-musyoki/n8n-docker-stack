@@ -40,6 +40,7 @@ REDIS_VERSION=8.8.0-alpine
 # --- n8n Host (for OAuth/callbacks) -----------------------------------------
 N8N_HOST=localhost
 N8N_PORT=5678
+N8N_HOST_PORT=5678
 N8N_PROTOCOL=http
 
 # --- Timezone ----------------------------------------------------------------
@@ -75,7 +76,7 @@ def main() -> None:
     out = Path(__file__).parent / ".env"
     out.write_text(build_env())
     logger.info("env_generated", path=str(out))
-    logger.info("review_needed", fields=["N8N_HOST", "WEBHOOK_URL"])
+    logger.info("review_needed", fields=["N8N_HOST", "N8N_HOST_PORT", "WEBHOOK_URL"])
 
 
 if __name__ == "__main__":

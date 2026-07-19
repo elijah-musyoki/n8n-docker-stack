@@ -2,7 +2,6 @@ volumes:
   db_storage:
   n8n_storage:
   redis_storage:
-  alloy_data:
 
 x-shared: &shared
   restart: always
@@ -41,8 +40,9 @@ x-shared: &shared
     - N8N_METRICS_INCLUDE_NODE_TYPE_LABEL=true
     - N8N_METRICS_INCLUDE_QUEUE_METRICS=true
     - N8N_OTEL_ENABLED=true
-    - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318
-    - N8N_OTEL_TRACES_SAMPLE_RATE=${N8N_OTEL_TRACES_SAMPLE_RATE}
+    - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=${N8N_OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4318}
+    - N8N_OTEL_TRACES_SAMPLE_RATE=${N8N_OTEL_TRACES_SAMPLE_RATE:-1}
+    - N8N_OTEL_TRACES_PRODUCTION_ONLY=${N8N_OTEL_TRACES_PRODUCTION_ONLY:-false}
     - N8N_DEFAULT_BINARY_DATA_MODE=database
     - N8N_BINARY_DATA_DATABASE_MAX_FILE_SIZE=512
     - N8N_BLOCK_ENV_ACCESS_IN_NODE=true
@@ -59,6 +59,8 @@ x-shared: &shared
     - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
   volumes:
     - n8n_storage:/home/node/.n8n
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   networks:
     - backend
     - n8n-net
@@ -132,7 +134,7 @@ services:
   n8n:
     <<: *shared
     ports:
-      - 127.0.0.1:5678:5678
+      - 127.0.0.1:${N8N_HOST_PORT:-5678}:5678
     stop_grace_period: 60s
     depends_on:
       <<: *backend-deps
@@ -222,36 +224,6 @@ services:
           memory: 512M
         reservations:
           cpus: '0.25'
-          memory: 128M
-    networks:
-      - n8n-net
-
-  alloy:
-    image: grafana/alloy:v1.17.1
-    restart: always
-    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-    volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy
-      - alloy_data:/var/lib/alloy/data
-    environment:
-      - GRAFANA_CLOUD_TRACES_INSTANCE_ID=${GRAFANA_CLOUD_TRACES_INSTANCE_ID}
-      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - >-
-          bash -lc 'exec 3<>/dev/tcp/127.0.0.1/12345 && printf "GET /ready HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3 && head -n1 <&3 | grep -q "200"'
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
           memory: 128M
     networks:
       - n8n-net
