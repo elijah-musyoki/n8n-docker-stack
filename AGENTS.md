@@ -28,8 +28,8 @@ None. This project uses Docker Compose.
 
 - Keep secrets in `.env`.
 - Do not commit `.env`.
-- Use `uv run generate-secrets.py` on first run.
-- `generate-secrets.py` writes `.env` in the repo root.
+- Use `./bootstrap.sh` on the first run.
+- Use `./generate-secrets.py` to create or refresh `.env` in the repo root.
 - `init-data.sh` runs on the first Postgres start.
 - If the DB user changes later, run the SQL again or wipe `db_storage`.
 - Update n8n by changing `N8N_VERSION` in `.env`.

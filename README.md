@@ -32,9 +32,7 @@ All services use the internal `n8n-net` network.
 ## Quick start
 
 ```bash
-cp .env.example .env
-uv run generate-secrets.py
-docker compose up -d
+./bootstrap.sh
 ```
 
 Open:
@@ -68,7 +66,7 @@ cp .env.local-staging.example .env.local-staging
 cp .env.local-prod.example .env.local-prod
 ```
 
-Set `N8N_HOST_PORT` and `WEBHOOK_URL` in each file.
+Set `N8N_HOST_PORT` and `N8N_WEBHOOK_URL` in each file.
 Keep `N8N_PORT=5678` inside every stack.
 
 ---
@@ -117,7 +115,7 @@ Required values:
 | `N8N_ENDPOINT_HEALTH` | Health path |
 | `N8N_PORT` | Container port |
 | `N8N_HOST_PORT` | Host port |
-| `WEBHOOK_URL` | Public webhook URL |
+| `N8N_WEBHOOK_URL` | Public webhook URL |
 | `GRAFANA_CLOUD_TRACES_INSTANCE_ID` | Grafana Cloud traces ID |
 | `GRAFANA_CLOUD_API_KEY` | Grafana Cloud API key |
 
@@ -126,7 +124,7 @@ Other values:
 - `N8N_PROTOCOL`
 - `GENERIC_TIMEZONE`
 - `TZ`
-- `N8N_OTEL_PRODUCTION_ONLY`
+- `N8N_OTEL_TRACES_PRODUCTION_ONLY`
 - `REDIS_MAXMEMORY`
 - `REDIS_MAXMEMORY_POLICY`
 - `QUEUE_BULL_REDIS_PORT`
@@ -138,9 +136,8 @@ Other values:
 Generate or refresh `.env` with:
 
 ```bash
-uv run generate-secrets.py
+./generate-secrets.py
 ```
-
 If you need the values by hand:
 
 ```bash
@@ -216,7 +213,7 @@ docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_
 | n8n healthcheck fails | Alloy is not running or not reachable | Start Alloy and check `http://host.docker.internal:4318` |
 | `POSTGRES_NON_ROOT_USER` is missing | `init-data.sh` did not run | Run `docker compose down -v && docker compose up -d` |
 | Task runners do not connect | `RUNNERS_AUTH_TOKEN` mismatch | Use the same value in every env file |
-| Webhook URLs show `localhost` | `WEBHOOK_URL` is not set for that stack | Set the correct public URL in `.env` |
+| Webhook URLs show `localhost` | `N8N_WEBHOOK_URL` is not set for that stack | Set the correct public URL in `.env` |
 | Memory use is high | Limits are too large for the host | Lower `deploy.resources.limits` |
 
 ---
