@@ -25,7 +25,7 @@ N/A — Docker Compose project.
 - First deploy: `cp .env.example .env`, generate secrets with `openssl rand -hex 32`.
 - DB init: `init-data.sh` runs on first Postgres startup. Re-run: `docker compose down -v`.
 - Update n8n: change `N8N_VERSION` in `.env`, then `docker compose pull && docker compose up -d`.
-- OTLP traces: n8n → Alloy sidecar (alloy:4318) → Grafana Cloud Tempo.
+- OTLP traces: n8n → host Alloy (host.docker.internal:4318) → Grafana Cloud Tempo.
 
 ## Commit Attribution
 ```

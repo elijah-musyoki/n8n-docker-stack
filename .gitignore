@@ -6,9 +6,15 @@ session-*.md
 
 # Local environment (contains secrets)
 .env
+.env.staging
+.env.prod
 
 # Research files
 research/
 
-# Docker volumes
-alloy_data/
+# Agent metadata
+.pi/
+.infisical.json
+
+# Vendor repo snapshot
+/vendor/n8n-ci-cd/

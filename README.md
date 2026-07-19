@@ -1,4 +1,4 @@
-# n8n with PostgreSQL, Redis, Worker, Task Runners, and Alloy
+# n8n with PostgreSQL, Redis, Worker, Task Runners, and systemd Alloy
 
 A production-ready Docker Compose stack for n8n 2.0+ with:
 
@@ -8,7 +8,7 @@ A production-ready Docker Compose stack for n8n 2.0+ with:
 - **n8n-worker** — dedicated execution worker (queue mode)
 - **n8n-runner** — task runner sidecar for Code nodes (JavaScript/Python)
 - **n8n-worker-runner** — task runner attached to the worker
-- **Alloy** — OTLP trace receiver, forwards to Grafana Cloud Tempo
+- **Alloy** — host/systemd OTLP receiver that forwards to Grafana Cloud Tempo
 
 ---
 
@@ -35,7 +35,7 @@ A production-ready Docker Compose stack for n8n 2.0+ with:
                             └──────────┘ └────────────┘
 
          ┌──────────────────────────────────────┐
-         │              Alloy                   │
+         │        Host Alloy (systemd)          │
          │  Receives OTLP traces from n8n       │
          │  Forwards to Grafana Cloud Tempo     │
          └──────────────────────────────────────┘
@@ -67,6 +67,33 @@ docker compose up -d
 
 n8n will be available at **http://localhost:5678**
 
+## Multiple local stacks
+
+You can run three isolated stacks from the same compose file by giving each one its own project name and env file.
+
+| Stack | Project name | Host port | Env file |
+|------|------|------|------|
+| Dev | `n8n-dev` | `5678` | `.env` |
+| Staging | `n8n-staging` | `5679` | `.env.staging` |
+| Prod | `n8n-prod` | `5680` | `.env.prod` |
+
+Launch them like this:
+
+```bash
+docker compose -p n8n-dev up -d
+docker compose -p n8n-staging --env-file .env.staging up -d
+docker compose -p n8n-prod --env-file .env.prod up -d
+```
+
+For the non-dev stacks, copy the example files first:
+
+```bash
+cp .env.staging.example .env.staging
+cp .env.prod.example .env.prod
+```
+
+Then set `N8N_HOST_PORT` and `WEBHOOK_URL` to match the port in each file. Leave `N8N_PORT=5678` alone inside every stack.
+
 ---
 
 ## Stop & Cleanup
@@ -91,7 +118,7 @@ All configuration lives in `.env` (copy from `.env.example`).
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `N8N_VERSION` | n8n image tag (e.g., `2.30.7`) | ✅ |
-| `POSTGRES_VERSION` | PostgreSQL image tag (e.g., `17-alpine`) | ✅ |
+| `POSTGRES_VERSION` | PostgreSQL image tag (e.g., `18.4`) | ✅ |
 | `REDIS_VERSION` | Redis image tag (e.g., `8.8.0-alpine`) | ✅ |
 | `POSTGRES_USER` | Postgres superuser name | ✅ |
 | `POSTGRES_PASSWORD` | Postgres superuser password | ✅ |
@@ -103,6 +130,8 @@ All configuration lives in `.env` (copy from `.env.example`).
 | `REDIS_PASSWORD` | Redis auth password | ✅ |
 | `N8N_OTEL_TRACES_SAMPLE_RATE` | Trace sampling (0.0–1.0) | ✅ |
 | `N8N_ENDPOINT_HEALTH` | Health endpoint path (default: `health/live`) | ✅ |
+| `N8N_PORT` | n8n listen port inside the container (keep `5678`) | ✅ |
+| `N8N_HOST_PORT` | Published host port for the web UI | ✅ |
 | `WEBHOOK_URL` | Public URL for webhooks (update for prod) | ✅ |
 | `GRAFANA_CLOUD_TRACES_INSTANCE_ID` | Grafana Cloud traces instance ID | ✅ |
 | `GRAFANA_CLOUD_API_KEY` | Grafana Cloud API key | ✅ |
@@ -141,7 +170,7 @@ Runs automatically on first PostgreSQL startup. Creates the non-root database us
 
 | Feature | Config | Notes |
 |---------|--------|-------|
-| **OpenTelemetry traces** | `N8N_OTEL_ENABLED=true` | Exports to `http://alloy:4318` — sidecar Alloy receives traces and forwards to Grafana Cloud Tempo |
+| **OpenTelemetry traces** | `N8N_OTEL_ENABLED=true` | Exports to `http://host.docker.internal:4318` — host Alloy receives traces and forwards to Grafana Cloud Tempo |
 | **Prometheus metrics** | `N8N_METRICS=true` | Scrape at `http://localhost:5678/metrics` |
 | **JSON logging** | `N8N_LOG_FORMAT=json` | Structured logs to stdout for log aggregators |
 | **Queue metrics** | `N8N_METRICS_INCLUDE_QUEUE_METRICS=true` | Bull queue depth, latency, etc. |
@@ -160,8 +189,7 @@ The compose file sets CPU/memory limits. Minimum host resources recommended:
 | n8n-worker-runner | 1 core | 512 MB |
 | PostgreSQL | 2 cores | 1 GB |
 | Redis | 1 core | 256 MB |
-| Alloy | 0.5 cores | 256 MB |
-| **Total** | **~11.5 cores** | **~5.5 GB** |
+| **Total** | **~11 cores** | **~5.25 GB** |
 
 Adjust `deploy.resources.limits` in `docker-compose.yml` if your host has less.
 
@@ -176,7 +204,6 @@ Named Docker volumes (survive `docker compose down`):
 | `db_storage` | postgres | `/var/lib/postgresql` — all DB data |
 | `n8n_storage` | n8n, n8n-worker | `/home/node/.n8n` — binary data, config, custom nodes |
 | `redis_storage` | redis | `/data` — queue persistence (AOF) |
-| `alloy_data` | alloy | `/var/lib/alloy/data` — trace buffering |
 
 Backup strategy: `docker run --rm -v db_storage:/data -v $(pwd):/backup alpine tar czf /backup/db_backup_$(date +%F).tar.gz -C /data .`
 
@@ -186,7 +213,7 @@ Backup strategy: `docker run --rm -v db_storage:/data -v $(pwd):/backup alpine t
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `n8n` healthcheck fails | Alloy sidecar not running | `docker compose up -d alloy` or disable OTel with `N8N_OTEL_ENABLED=false` |
+| `n8n` healthcheck fails | Host Alloy not running or not reachable from containers | Start Alloy under systemd and verify `http://host.docker.internal:4318` is reachable |
 | `POSTGRES_NON_ROOT_USER` not created | `init-data.sh` didn't run (volume already existed) | `docker compose down -v && docker compose up -d` |
 | Task runners won't connect | `RUNNERS_AUTH_TOKEN` mismatch | Ensure identical value in `.env` for all services |
 | Webhook URLs show `localhost` | `WEBHOOK_URL` not updated | Set `WEBHOOK_URL=https://your-domain.com/` in `.env` |
@@ -201,6 +228,7 @@ Backup strategy: `docker run --rm -v db_storage:/data -v $(pwd):/backup alpine t
 - `N8N_RESTRICT_FILE_ACCESS_TO=/home/node/.n8n` — file operations sandboxed
 - `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true` — strict file perms
 - Task runners authenticate via shared `RUNNERS_AUTH_TOKEN`
+- `host.docker.internal` is mapped to the Docker host so containers can reach systemd Alloy
 - PostgreSQL uses a non-root user for n8n connections
 
 ---
