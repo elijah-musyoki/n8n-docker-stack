@@ -1,6 +1,6 @@
-# n8n with PostgreSQL, Redis, Worker, Task Runners, and systemd Alloy
+# n8n with PostgreSQL, Redis, Worker, Task Runners, and host Alloy
 
-A production-ready Docker Compose stack for n8n 2.0+ with:
+A Docker Compose stack for n8n with PostgreSQL, Redis, workers, task runners, and Alloy on the Docker host.
 
 - **PostgreSQL** — persistent workflow & execution data
 - **Redis** — Bull queue backend for execution routing
@@ -8,7 +8,7 @@ A production-ready Docker Compose stack for n8n 2.0+ with:
 - **n8n-worker** — dedicated execution worker (queue mode)
 - **n8n-runner** — task runner sidecar for Code nodes (JavaScript/Python)
 - **n8n-worker-runner** — task runner attached to the worker
-- **Alloy** — host/systemd OTLP receiver that forwards to Grafana Cloud Tempo
+- **Alloy** — OTLP receiver on the host that forwards to Grafana Cloud Tempo
 
 ---
 
@@ -35,7 +35,7 @@ A production-ready Docker Compose stack for n8n 2.0+ with:
                             └──────────┘ └────────────┘
 
          ┌──────────────────────────────────────┐
-         │        Host Alloy (systemd)          │
+         │           Alloy on the host          │
          │  Receives OTLP traces from n8n       │
          │  Forwards to Grafana Cloud Tempo     │
          └──────────────────────────────────────┘
@@ -67,29 +67,29 @@ docker compose up -d
 
 n8n will be available at **http://localhost:5678**
 
-## Multiple local stacks
+## Local stack examples
 
-You can run three isolated stacks from the same compose file by giving each one its own project name and env file.
+You can run three local stacks from the same compose file by giving each one its own project name and env file.
 
 | Stack | Project name | Host port | Env file |
 |------|------|------|------|
 | Dev | `n8n-dev` | `5678` | `.env` |
-| Staging | `n8n-staging` | `5679` | `.env.staging` |
-| Prod | `n8n-prod` | `5680` | `.env.prod` |
+| Local staging | `n8n-staging` | `5679` | `.env.local-staging` |
+| Local prod | `n8n-prod` | `5680` | `.env.local-prod` |
 
 Launch them like this:
 
 ```bash
 docker compose -p n8n-dev up -d
-docker compose -p n8n-staging --env-file .env.staging up -d
-docker compose -p n8n-prod --env-file .env.prod up -d
+docker compose -p n8n-staging --env-file .env.local-staging up -d
+docker compose -p n8n-prod --env-file .env.local-prod up -d
 ```
 
-For the non-dev stacks, copy the example files first:
+For the local staging and local prod stacks, copy the example files first:
 
 ```bash
-cp .env.staging.example .env.staging
-cp .env.prod.example .env.prod
+cp .env.local-staging.example .env.local-staging
+cp .env.local-prod.example .env.local-prod
 ```
 
 Then set `N8N_HOST_PORT` and `WEBHOOK_URL` to match the port in each file. Leave `N8N_PORT=5678` alone inside every stack.

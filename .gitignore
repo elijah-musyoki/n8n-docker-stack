@@ -6,8 +6,8 @@ session-*.md
 
 # Local environment (contains secrets)
 .env
-.env.staging
-.env.prod
+.env.local-staging
+.env.local-prod
 
 # Research files
 research/
