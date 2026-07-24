@@ -35,7 +35,7 @@ x-shared: &shared
     - N8N_METRICS_INCLUDE_QUEUE_METRICS=true
     - N8N_OTEL_ENABLED=true
     - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
-    - N8N_OTEL_TRACES_SAMPLE_RATE=0.1
+    - N8N_OTEL_TRACES_SAMPLE_RATE=${N8N_OTEL_TRACES_SAMPLE_RATE}
     - N8N_DEFAULT_BINARY_DATA_MODE=database
     - N8N_BINARY_DATA_DATABASE_MAX_FILE_SIZE=512
     - N8N_BLOCK_ENV_ACCESS_IN_NODE=true
@@ -45,6 +45,8 @@ x-shared: &shared
     - N8N_GIT_NODE_DISABLE_BARE_REPOS=true
     - N8N_PUSH_BACKEND=websocket
     - N8N_GRACEFUL_SHUTDOWN_TIMEOUT=30
+    - N8N_ENDPOINT_HEALTH=${N8N_ENDPOINT_HEALTH}
+    - WEBHOOK_URL=${WEBHOOK_URL}
     - EXECUTIONS_DATA_PRUNE=true
     - EXECUTIONS_DATA_MAX_AGE=720
     - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
@@ -127,7 +129,7 @@ services:
     depends_on:
       <<: *backend-deps
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/${N8N_ENDPOINT_HEALTH}',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -169,7 +171,7 @@ services:
     command: worker --concurrency=5
     stop_grace_period: 60s
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:5678/${N8N_ENDPOINT_HEALTH}/readiness',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -177,7 +179,7 @@ services:
     depends_on:
       <<: *backend-deps
       n8n:
-        condition: service_started
+        condition: service_healthy
     deploy:
       resources:
         limits:

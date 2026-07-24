@@ -1,0 +1,8 @@
+# Letta workspace metadata
+.letta/
+
+# Session notes
+session-*.md
+
+# Local environment (contains secrets)
+.env
