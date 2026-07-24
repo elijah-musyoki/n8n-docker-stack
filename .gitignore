@@ -6,3 +6,9 @@ session-*.md
 
 # Local environment (contains secrets)
 .env
+
+# Research files
+research/
+
+# Docker volumes
+alloy_data/
