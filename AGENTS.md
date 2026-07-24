@@ -1,6 +1,7 @@
-# Agent Instructions
+# Agent instructions
 
 ## Package manager
+
 None. This project uses Docker Compose.
 
 ## Commands
@@ -28,8 +29,8 @@ None. This project uses Docker Compose.
 
 - Keep secrets in `.env`.
 - Do not commit `.env`.
-- Use `./bootstrap.sh` on the first run.
-- Use `./generate-secrets.py` to create or refresh `.env` in the repo root.
+- Run `./bootstrap.sh` on the first run.
+- Run `./generate-secrets.py` to create or refresh `.env` in the repo root.
 - `init-data.sh` runs on the first Postgres start.
 - If the DB user changes later, run the SQL again or wipe `db_storage`.
 - Update n8n by changing `N8N_VERSION` in `.env`.
