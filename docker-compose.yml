@@ -2,6 +2,7 @@ volumes:
   db_storage:
   n8n_storage:
   redis_storage:
+  alloy_data:
 
 x-shared: &shared
   restart: always
@@ -40,7 +41,7 @@ x-shared: &shared
     - N8N_METRICS_INCLUDE_NODE_TYPE_LABEL=true
     - N8N_METRICS_INCLUDE_QUEUE_METRICS=true
     - N8N_OTEL_ENABLED=true
-    - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
+    - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318
     - N8N_OTEL_TRACES_SAMPLE_RATE=${N8N_OTEL_TRACES_SAMPLE_RATE}
     - N8N_DEFAULT_BINARY_DATA_MODE=database
     - N8N_BINARY_DATA_DATABASE_MAX_FILE_SIZE=512
@@ -58,8 +59,6 @@ x-shared: &shared
     - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
   volumes:
     - n8n_storage:/home/node/.n8n
-  extra_hosts:
-    - host.docker.internal:host-gateway
   networks:
     - backend
     - n8n-net
@@ -90,7 +89,7 @@ services:
       - POSTGRES_NON_ROOT_USER
       - POSTGRES_NON_ROOT_PASSWORD
     volumes:
-      - db_storage:/var/lib/postgresql/data
+      - db_storage:/var/lib/postgresql
       - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
@@ -223,6 +222,36 @@ services:
           memory: 512M
         reservations:
           cpus: '0.25'
+          memory: 128M
+    networks:
+      - n8n-net
+
+  alloy:
+    image: grafana/alloy:v1.17.1
+    restart: always
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+      - alloy_data:/var/lib/alloy/data
+    ports:
+      - 127.0.0.1:4317:4317
+      - 127.0.0.1:4318:4318
+    environment:
+      - GRAFANA_CLOUD_TRACES_INSTANCE_ID=${GRAFANA_CLOUD_TRACES_INSTANCE_ID}
+      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:12345/ready || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
           memory: 128M
     networks:
       - n8n-net
