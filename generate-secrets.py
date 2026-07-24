@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["structlog"]
 # ///
 """Generate a complete .env file with secure secrets for n8n Docker Compose."""
 
+from __future__ import annotations
+
+import argparse
+import os
 import secrets
 import string
+import stat
 import sys
+import tempfile
 from pathlib import Path
-
-import structlog
-
-logger = structlog.get_logger()
 
 CHARSET = string.ascii_letters + string.digits
 
@@ -33,13 +34,14 @@ def build_env() -> str:
 # =============================================================================
 
 # --- Container Versions ------------------------------------------------------
-N8N_VERSION=2.29.10
+N8N_VERSION=2.30.7
 POSTGRES_VERSION=18.4
 REDIS_VERSION=8.8.0-alpine
 
 # --- n8n Host (for OAuth/callbacks) -----------------------------------------
 N8N_HOST=localhost
 N8N_PORT=5678
+N8N_HOST_PORT=5678
 N8N_PROTOCOL=http
 
 # --- Timezone ----------------------------------------------------------------
@@ -58,7 +60,11 @@ POSTGRES_NON_ROOT_PASSWORD={gen_alphanumeric()}
 ENCRYPTION_KEY={gen()}
 N8N_OTEL_TRACES_SAMPLE_RATE=0.1
 N8N_ENDPOINT_HEALTH=health/live
-WEBHOOK_URL=http://localhost:5678/
+N8N_WEBHOOK_URL=http://localhost:5678/
+N8N_UNVERIFIED_PACKAGES_ENABLED=true
+N8N_RUNNERS_TASK_TIMEOUT=300
+N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES=2147483648
+N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES=5000
 
 # --- Task Runners ------------------------------------------------------------
 RUNNERS_AUTH_TOKEN={gen()}
@@ -71,16 +77,50 @@ QUEUE_BULL_REDIS_PORT=6379
 """
 
 
+def write_secure_env(path: Path, *, force: bool = False) -> None:
+    path = path.expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.exists() and not force:
+        raise FileExistsError(f"Refusing to overwrite existing file: {path}")
+
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent, text=True)
+    temporary_path = Path(temporary_name)
+
+    try:
+        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            fd = -1
+            file.write(build_env())
+            file.flush()
+            os.fsync(file.fileno())
+
+        os.replace(temporary_path, path)
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+
+        if stat.S_IMODE(path.stat().st_mode) != 0o600:
+            raise PermissionError(f"Could not enforce 0600 permissions on {path}")
+    finally:
+        if fd != -1:
+            os.close(fd)
+        temporary_path.unlink(missing_ok=True)
+
+
 def main() -> None:
-    out = Path(__file__).parent / ".env"
-    out.write_text(build_env())
-    logger.info("env_generated", path=str(out))
-    logger.info("review_needed", fields=["N8N_HOST", "WEBHOOK_URL"])
+    parser = argparse.ArgumentParser(description="Create a secure .env file")
+    parser.add_argument("path", nargs="?", default=Path(__file__).parent / ".env", type=Path)
+    parser.add_argument("--force", action="store_true", help="replace an existing file")
+    args = parser.parse_args()
+
+    write_secure_env(args.path, force=args.force)
+    print(f"Created {args.path.expanduser().resolve()} with mode 0600")
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception:
-        logger.exception("fatal")
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)

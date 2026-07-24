@@ -2,7 +2,6 @@ volumes:
   db_storage:
   n8n_storage:
   redis_storage:
-  alloy_data:
 
 x-shared: &shared
   restart: always
@@ -41,8 +40,9 @@ x-shared: &shared
     - N8N_METRICS_INCLUDE_NODE_TYPE_LABEL=true
     - N8N_METRICS_INCLUDE_QUEUE_METRICS=true
     - N8N_OTEL_ENABLED=true
-    - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318
-    - N8N_OTEL_TRACES_SAMPLE_RATE=${N8N_OTEL_TRACES_SAMPLE_RATE}
+    - N8N_OTEL_EXPORTER_OTLP_ENDPOINT=${N8N_OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4318}
+    - N8N_OTEL_TRACES_SAMPLE_RATE=${N8N_OTEL_TRACES_SAMPLE_RATE:-1}
+    - N8N_OTEL_TRACES_PRODUCTION_ONLY=${N8N_OTEL_TRACES_PRODUCTION_ONLY:-false}
     - N8N_DEFAULT_BINARY_DATA_MODE=database
     - N8N_BINARY_DATA_DATABASE_MAX_FILE_SIZE=512
     - N8N_BLOCK_ENV_ACCESS_IN_NODE=true
@@ -53,12 +53,18 @@ x-shared: &shared
     - N8N_PUSH_BACKEND=websocket
     - N8N_GRACEFUL_SHUTDOWN_TIMEOUT=30
     - N8N_ENDPOINT_HEALTH=${N8N_ENDPOINT_HEALTH}
-    - WEBHOOK_URL=${WEBHOOK_URL}
+    - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+    - N8N_UNVERIFIED_PACKAGES_ENABLED=${N8N_UNVERIFIED_PACKAGES_ENABLED:-true}
+    - N8N_RUNNERS_TASK_TIMEOUT=${N8N_RUNNERS_TASK_TIMEOUT:-300}
+    - N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES=${N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES:-2147483648}
+    - N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES=${N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES:-5000}
     - EXECUTIONS_DATA_PRUNE=true
     - EXECUTIONS_DATA_MAX_AGE=720
     - EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000
   volumes:
     - n8n_storage:/home/node/.n8n
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   networks:
     - backend
     - n8n-net
@@ -132,7 +138,7 @@ services:
   n8n:
     <<: *shared
     ports:
-      - 127.0.0.1:5678:5678
+      - 127.0.0.1:${N8N_HOST_PORT:-5678}:5678
     stop_grace_period: 60s
     depends_on:
       <<: *backend-deps
@@ -222,36 +228,6 @@ services:
           memory: 512M
         reservations:
           cpus: '0.25'
-          memory: 128M
-    networks:
-      - n8n-net
-
-  alloy:
-    image: grafana/alloy:v1.17.1
-    restart: always
-    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-    volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy
-      - alloy_data:/var/lib/alloy/data
-    ports:
-      - 127.0.0.1:4317:4317
-      - 127.0.0.1:4318:4318
-    environment:
-      - GRAFANA_CLOUD_TRACES_INSTANCE_ID=${GRAFANA_CLOUD_TRACES_INSTANCE_ID}
-      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY}
-    healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:12345/ready || exit 1']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
           memory: 128M
     networks:
       - n8n-net
